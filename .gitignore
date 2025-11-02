@@ -1,0 +1,43 @@
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker volumes / database data
+mysql_data/
+*.sock
+
+# Docker compose overrides (si existen)
+docker-compose.override.yml
+
+# IDE / editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Optional: Coverage reports
+coverage/
+.nyc_output/
+
+# Optional: temporary files
+tmp/
+temp/

@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@faker-js/faker": "^9.9.0",
     "@sendgrid/mail": "^8.1.6",
     "amqplib": "^0.10.9",
     "dotenv": "^17.2.3",
