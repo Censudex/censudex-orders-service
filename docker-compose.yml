@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  orders-db:
+    image: mysql:8
+    container_name: censudex_orders_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: censudex_orders
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: censudex_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+
+  orders-service:
+    build: .
+    container_name: censudex_orders_service
+    restart: always
+    depends_on:
+      - orders-db
+      - rabbitmq
+    environment:
+      - PORT=3000
+      - DB_HOST=orders-db
+      - DB_NAME=censudex_orders
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - SENDGRID_API_KEY=SG.xxxxxxx
+      - FROM_EMAIL=no-reply@censudex.cl
+    ports:
+      - "3000:3000"
+    command: npm run dev
