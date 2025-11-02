@@ -1,9 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import { connectDB, sequelize } from './config/db.js';
+import { connectDB, sequelize } from './config/censudex-orders-db.js';
 import { connectRabbitMQ } from './config/rabbitmq.js';
-import ordersRoutes from './routes/orders.routes.js';
-import { errorHandler } from './middlewares/error.middleware.js';
+import ordersRoutes from './routes/ordersRoutes.js';
+import { errorHandler } from './middlewares/errorMiddleware.js';
 
 dotenv.config();
 

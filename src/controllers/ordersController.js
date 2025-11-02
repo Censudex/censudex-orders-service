@@ -1,4 +1,4 @@
-import * as orderService from '../services/order.service.js';
+import * as orderService from '../services/orderService.js';
 
 export const createOrder = async (req, res, next) => {
   try {

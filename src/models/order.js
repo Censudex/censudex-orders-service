@@ -1,5 +1,5 @@
 import { DataTypes } from 'sequelize';
-import { sequelize } from '../config/db.js';
+import { sequelize } from '../config/censudex-orders-db.js';
 
 export const Order = sequelize.define('Order', {
   id: { 
