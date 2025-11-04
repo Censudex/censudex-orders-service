@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   orders-db:
     image: mysql:8
@@ -10,6 +12,11 @@ services:
       - "3308:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -21,14 +28,22 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   orders-service:
     build: .
     container_name: censudex_orders_service
     restart: always
     depends_on:
-      - orders-db
-      - rabbitmq
+      orders-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - PORT=3000
       - DB_HOST=orders-db

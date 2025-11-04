@@ -5,9 +5,10 @@ import { sequelize } from './config/censudex-orders-db.js';
 import { Order } from './models/order.js';
 import { OrderItem } from './models/orderItem.js';
 import { seedDatabase } from './seeders/seeder.js'; // importa tu seeder
+import { connectRabbitMQ } from './config/rabbitmq.js';
 
-const { DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, PORT } = process.env;
 dotenv.config();
+const { DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, PORT } = process.env;
 // Función para crear la base de datos si no existe
 async function createDatabaseIfNotExists() {
   const connection = await mysql.createConnection({
@@ -43,7 +44,7 @@ async function start() {
     console.log('Conexión con MySQL exitosa');
 
     await initDatabase();
-
+    await connectRabbitMQ();
     const app = express();
     app.use(express.json());
 
