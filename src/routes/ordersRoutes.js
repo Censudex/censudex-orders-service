@@ -5,6 +5,9 @@ const router = Router();
 
 router.post('/', ordersController.createOrder);
 router.get('/', ordersController.getAllOrders);
-router.get('/:id', ordersController.getOrderById);
+router.get('/:trackingNumber/status', ordersController.getOrderStatus);
+router.patch('/:id/status', ordersController.updateOrderStatus);
+router.patch('/:idOrTracking/cancel', ordersController.cancelOrder);
+router.get('/history/:clientId', ordersController.getOrderHistory);
 
 export default router;

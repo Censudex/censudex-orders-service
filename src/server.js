@@ -4,64 +4,73 @@ import dotenv from 'dotenv';
 import { sequelize } from './config/censudex-orders-db.js';
 import { Order } from './models/order.js';
 import { OrderItem } from './models/orderItem.js';
-import { seedDatabase } from './seeders/seeder.js'; // importa tu seeder
+import { seedDatabase } from './seeders/seeder.js';
 import { connectRabbitMQ } from './config/rabbitmq.js';
+import ordersRouter from './routes/ordersRoutes.js'; // 👈 importa tu router
 
 dotenv.config();
+
 const { DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, PORT } = process.env;
-// Función para crear la base de datos si no existe
-async function createDatabaseIfNotExists() {
-  const connection = await mysql.createConnection({
-    host: DB_HOST,
-    user: DB_USER,
-    password: DB_PASSWORD
-  });
-  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;`);
-  await connection.end();
+
+// 🧩 Esperar a que la base de datos esté lista antes de continuar
+async function waitForDatabase() {
+  let retries = 10;
+  while (retries > 0) {
+    try {
+      const connection = await mysql.createConnection({
+        host: DB_HOST,
+        user: DB_USER,
+        password: DB_PASSWORD,
+      });
+      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;`);
+      await connection.end();
+      console.log('✅ Base de datos lista');
+      return;
+    } catch (err) {
+      console.log('⏳ Esperando a que MySQL esté listo...');
+      retries--;
+      await new Promise((res) => setTimeout(res, 5000));
+    }
+  }
+  throw new Error('❌ No se pudo conectar a MySQL después de varios intentos');
 }
 
-// Función para inicializar la base de datos y ejecutar el seeder si está vacía
+// 🧩 Sincronizar modelos y ejecutar seeder
 async function initDatabase() {
-  // Sincroniza las tablas de los modelos (sin borrar datos existentes)
-  await sequelize.sync({ alter: true });
-  console.log('Tablas sincronizadas correctamente');
+  await sequelize.sync({ force: true });
+  console.log('🧩 Migraciones ejecutadas correctamente');
 
-  // Verifica si la tabla de orders está vacía
   const count = await Order.count();
   if (count === 0) {
-    console.log('La tabla Order está vacía. Ejecutando seeder...');
-    await seedDatabase(20, 5); // puedes cambiar la cantidad de órdenes/items
+    console.log('🌱 Ejecutando seeder...');
+    await seedDatabase(20, 5);
   } else {
-    console.log('La tabla Order ya tiene datos, seeder no se ejecuta.');
+    console.log('✅ La base de datos ya tiene datos.');
   }
 }
 
+// 🚀 Iniciar la aplicación
 async function start() {
-  await createDatabaseIfNotExists();
+  await waitForDatabase();
+  await connectRabbitMQ();
 
   try {
     await sequelize.authenticate();
-    console.log('Conexión con MySQL exitosa');
-
+    console.log('✅ Conectado a MySQL');
     await initDatabase();
-    await connectRabbitMQ();
+
     const app = express();
     app.use(express.json());
 
-    app.get('/orders', async (req, res) => {
-      const orders = await Order.findAll({ include: { model: OrderItem, as: 'items' } });
-      res.json(orders);
-    });
+    // 👇 Montar tus rutas
+    app.use('/orders', ordersRouter);
 
-    app.post('/orders', async (req, res) => {
-      const order = await Order.create(req.body, { include: [{ model: OrderItem, as: 'items' }] });
-      res.status(201).json(order);
-    });
+    // (Opcional) Ruta de salud para probar conexión rápida
+    app.get('/', (req, res) => res.send('✅ Order Service funcionando'));
 
-    app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
-
+    app.listen(PORT, () => console.log(`🚀 Order Service corriendo en puerto ${PORT}`));
   } catch (err) {
-    console.error('Error conectando a MySQL:', err);
+    console.error('❌ Error inicializando la app:', err);
   }
 }
 

@@ -1,0 +1,34 @@
+# Dependencias
+node_modules
+npm-debug.log
+package-lock.json
+
+# Control de versiones
+.git
+.gitignore
+
+# Variables de entorno (no deben ir al contenedor)
+.env
+.env.local
+.env.*.local
+
+# Archivos y carpetas de configuración local
+Dockerfile
+docker-compose.yml
+
+# Volúmenes o datos locales
+mysql_data
+logs
+uploads
+
+# Archivos temporales del sistema o del editor
+.DS_Store
+*.swp
+*.swo
+Thumbs.db
+
+# Archivos de compilación o backups (si existieran)
+dist
+build
+*.bak
+*.tmp

@@ -6,8 +6,8 @@ services:
     container_name: censudex_orders_db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: censudex_orders
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
     ports:
       - "3308:3306"
     volumes:
@@ -26,8 +26,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -44,15 +44,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    environment:
-      - PORT=3000
-      - DB_HOST=orders-db
-      - DB_NAME=censudex_orders
-      - DB_USER=root
-      - DB_PASSWORD=root
-      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
-      - SENDGRID_API_KEY=SG.xxxxxxx
-      - FROM_EMAIL=no-reply@censudex.cl
+    env_file:
+      - .env
     ports:
-      - "3000:3000"
+      - "${PORT}:3000"
     command: node src/server.js

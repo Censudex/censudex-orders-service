@@ -5,15 +5,32 @@ import { OrderItem } from '../models/orderItem.js';
 
 export async function seedDatabase(nOrders = 10, maxItemsPerOrder = 5) {
   try {
-    await sequelize.sync(); 
-    console.log('Base de datos sincronizada');
+    await sequelize.sync();
+    console.log('📦 Base de datos sincronizada');
 
     for (let i = 0; i < nOrders; i++) {
+      // Estado aleatorio
+      const status = faker.helpers.arrayElement([
+        'pendiente',
+        'en procesamiento',
+        'enviado',
+        'entregado',
+        'cancelado',
+      ]);
+
+      // 🔹 Generar un trackingNumber único para todos los pedidos
+      const trackingNumber = `TRK-${faker.string.alphanumeric(10).toUpperCase()}`;
+
+      // 🏠 Dirección de envío aleatoria
+      const shippingAddress = `${faker.location.streetAddress()}, ${faker.location.city()}, ${faker.location.country()}`;
+
       const order = await Order.create({
         clientId: faker.string.uuid(),
         clientName: faker.person.fullName(),
         totalAmount: 0,
-        status: faker.helpers.arrayElement(['pendiente','en procesamiento','enviado','entregado','cancelado'])
+        status,
+        trackingNumber,
+        shippingAddress, // ✅ Nuevo campo
       });
 
       const nItems = faker.number.int({ min: 1, max: maxItemsPerOrder });
@@ -28,7 +45,7 @@ export async function seedDatabase(nOrders = 10, maxItemsPerOrder = 5) {
           orderId: order.id,
           productId: faker.string.uuid(),
           quantity,
-          price
+          price,
         });
       }
 
@@ -36,10 +53,10 @@ export async function seedDatabase(nOrders = 10, maxItemsPerOrder = 5) {
       await order.save();
     }
 
-    console.log(`Se han creado ${nOrders} órdenes con items aleatorios`);
+    console.log(`✅ Se han creado ${nOrders} órdenes con trackingNumbers, direcciones y items aleatorios`);
 
   } catch (error) {
-    console.error('Error creando seed:', error);
-    throw error; // propaga el error a server.js
+    console.error('❌ Error creando seed:', error);
+    throw error; // Propaga el error a server.js
   }
 }
