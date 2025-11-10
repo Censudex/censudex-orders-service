@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package order;
+
+option csharp_namespace = "OrderService.Protos"; 
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetAllOrders(GetAllOrdersRequest) returns (GetAllOrdersResponse);
+  rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse);
+  rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  rpc GetOrderHistory(GetOrderHistoryRequest) returns (GetOrderHistoryResponse);
+}
+
+message OrderItem {
+  string id = 1;
+  string orderId = 2;
+  string productId = 3;
+  int32 quantity = 4;
+  double price = 5;
+}
+
+message Order {
+  string id = 1;
+  string clientId = 2;
+  string clientName = 3;
+  double totalAmount = 4;
+  string status = 5;
+  string trackingNumber = 6;
+  string shippingAddress = 7;
+  string createdAt = 8;
+  repeated OrderItem items = 9;
+}
+
+
+
+message CreateOrderRequest {
+  string clientId = 1;
+  string clientName = 2;
+  string shippingAddress = 3;
+  repeated OrderItem items = 4;
+}
+
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+message GetAllOrdersRequest {
+  string id = 1;
+  string userId = 2;
+  string startDate = 3;
+  string endDate = 4;
+}
+
+message GetAllOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message GetOrderStatusRequest {
+  string trackingNumber = 1;
+}
+message GetOrderStatusResponse {
+  string status = 1;
+}
+
+message UpdateOrderStatusRequest {
+  string id = 1;
+  string status = 2;
+}
+message UpdateOrderStatusResponse {
+  bool success = 1;
+}
+
+message CancelOrderRequest {
+  string idOrTracking = 1;
+  string role = 2;
+  string reason = 3;
+}
+message CancelOrderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetOrderHistoryRequest {
+  string clientId = 1;
+}
+message GetOrderHistoryResponse {
+  repeated Order orders = 1;
+}
+
+
+
+

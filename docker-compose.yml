@@ -48,4 +48,5 @@ services:
       - .env
     ports:
       - "${PORT}:3000"
+      - "50052:50052"
     command: node src/server.js

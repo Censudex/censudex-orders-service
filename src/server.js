@@ -7,6 +7,7 @@ import { OrderItem } from './models/orderItem.js';
 import { seedDatabase } from './seeders/seeder.js';
 import { connectRabbitMQ } from './config/rabbitmq.js';
 import ordersRouter from './routes/ordersRoutes.js'; // 👈 importa tu router
+import { startGrpcService } from './gRPC/orderGrpcService.js';
 
 dotenv.config();
 
@@ -75,3 +76,6 @@ async function start() {
 }
 
 start();
+(async () => {
+  await startGrpcService();
+})();
