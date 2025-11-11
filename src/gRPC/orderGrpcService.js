@@ -7,6 +7,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { faker } from '@faker-js/faker';
 import { Op } from 'sequelize';
+import { sendOrderEmail } from '../config/sendgrid.js'; // 👈 IMPORTANTE: tu módulo SendGrid
+import { publishToQueue } from '../config/rabbitmq.js';
 
 dotenv.config();
 
@@ -28,209 +30,182 @@ const orderProto = grpc.loadPackageDefinition(packageDefinition).order;
 
 // 📚 Implementación de métodos del servicio gRPC
 const orderService = {
-  // Crear una orden
-async CreateOrder(call, callback) {
-  try {
-    const { clientId, clientName, shippingAddress, items } = call.request;
+  // ✅ Crear una orden
+  async CreateOrder(call, callback) {
+    try {
+      const { clientId, clientName, shippingAddress, items, email } = call.request;
 
-    // 🧮 Calcular el totalAmount sumando (price * quantity) de cada item
-    const totalAmount = items.reduce(
-      (sum, item) => sum + (item.price * item.quantity),
-      0
-    );
-    const trackingNumber = `TRK-${faker.string.alphanumeric(10).toUpperCase()}`;
-    // 🗃️ Crear la orden con el total calculado
-    const order = await Order.create(
-      {
+      // 🧮 Calcular total
+      const totalAmount = items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+
+      const trackingNumber = `TRK-${faker.string.alphanumeric(10).toUpperCase()}`;
+
+      // 🗃️ Crear la orden
+      const order = await Order.create(
+        {
+          clientId,
+          clientName,
+          email,
+          totalAmount,
+          trackingNumber,
+          shippingAddress,
+          status: 'pendiente',
+          items: items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        },
+        { include: [{ model: OrderItem, as: 'items' }] }
+      );
+      await publishToQueue('order.created', {
+        orderId: order.id,
+        trackingNumber,
         clientId,
-        clientName,
-        totalAmount, 
-        trackingNumber, 
-        shippingAddress,
-        status: 'pendiente',
-        items: items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-      },
-      { include: [{ model: OrderItem, as: 'items' }] }
-    );
+        items,
+      });
+      // 📧 Enviar correo de confirmación
+      await sendOrderEmail('created', order);
 
-    callback(null, { message: 'Order created successfully', order });
-  } catch (error) {
-    callback({
-      code: grpc.status.INTERNAL,
-      message: `Error creating order: ${error.message}`,
-    });
-  }
-},
-
-
-async GetAllOrders(call, callback) {
-try {
-    const { id, userId, startDate, endDate } = call.request;
-    const filters = {};
-
-    // 🔹 Filtrar por ID
-    if (id) filters.id = id;
-
-    // 🔹 Filtrar por usuario
-    if (userId) filters.clientId = userId;
-
-    // 🔹 Filtrar por rango de fechas (con validación)
-    if (startDate && endDate) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (isNaN(start) || isNaN(end)) {
-        return callback({
-        code: grpc.status.INVALID_ARGUMENT,
-        message: 'Las fechas deben tener un formato válido (ejemplo: 2025-11-01T00:00:00Z)',
-        });
+      callback(null, { message: 'Orden creada exitosamente', order });
+    } catch (error) {
+      console.error('❌ Error en CreateOrder:', error);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: `Error creando la orden: ${error.message}`,
+      });
     }
+  },
 
-    filters.createdAt = { [Op.between]: [start, end] };
+  // ✅ Obtener todas las órdenes
+  async GetAllOrders(call, callback) {
+    try {
+      const { id, userId, startDate, endDate } = call.request;
+      const filters = {};
+
+      if (id) filters.id = id;
+      if (userId) filters.clientId = userId;
+
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (isNaN(start) || isNaN(end)) {
+          return callback({
+            code: grpc.status.INVALID_ARGUMENT,
+            message: 'Fechas inválidas (use formato ISO: 2025-11-01T00:00:00Z)',
+          });
+        }
+        filters.createdAt = { [Op.between]: [start, end] };
+      }
+
+      const orders = await Order.findAll({
+        where: filters,
+        include: [{ model: OrderItem, as: 'items' }],
+        order: [['createdAt', 'DESC']],
+      });
+
+      callback(null, { orders });
+    } catch (error) {
+      console.error('❌ Error en GetAllOrders:', error);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: `Error obteniendo órdenes: ${error.message}`,
+      });
     }
+  },
 
-    // 🔹 Consultar base de datos
-    const orders = await Order.findAll({
-    where: filters,
-    include: [{ model: OrderItem, as: 'items' }],
-    order: [['createdAt', 'DESC']],
-    });
-
-    // ✅ Respuesta exitosa
-    callback(null, { orders });
-} catch (error) {
-    console.error('Error fetching orders:', error);
-    callback({
-    code: grpc.status.INTERNAL,
-    message: `Error fetching orders: ${error.message}`,
-    });
-}
-},
-
-  // Obtener estado de una orden
+  // ✅ Obtener estado
   async GetOrderStatus(call, callback) {
     try {
       const { trackingNumber } = call.request;
       const order = await Order.findOne({ where: { trackingNumber } });
 
       if (!order)
-        return callback({ code: grpc.status.NOT_FOUND, message: 'Order not found' });
+        return callback({ code: grpc.status.NOT_FOUND, message: 'Orden no encontrada' });
 
       callback(null, { trackingNumber, status: order.status });
     } catch (error) {
       callback({
         code: grpc.status.INTERNAL,
-        message: `Error getting order status: ${error.message}`,
+        message: `Error obteniendo estado: ${error.message}`,
       });
     }
   },
 
-  // Actualizar estado
+  // ✅ Actualizar estado
   async UpdateOrderStatus(call, callback) {
     try {
       const { id, status } = call.request;
       const order = await Order.findByPk(id);
 
       if (!order)
-        return callback({ code: grpc.status.NOT_FOUND, message: 'Order not found' });
+        return callback({ code: grpc.status.NOT_FOUND, message: 'Orden no encontrada' });
 
       order.status = status;
       await order.save();
 
+      // 📧 Notificar cambio de estado
+      await sendOrderEmail(status === 'enviado' ? 'shipped' : status, order);
+
       callback(null, { success: true });
     } catch (error) {
-      callback({success: false});
+      console.error('❌ Error en UpdateOrderStatus:', error);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: `Error actualizando estado: ${error.message}`,
+      });
     }
   },
 
-  // Cancelar orden
-async CancelOrder(call, callback) {
-  try {
-    const { idOrTracking, role, reason } = call.request;
+  // ✅ Cancelar orden
+  async CancelOrder(call, callback) {
+    try {
+      const { idOrTracking, role, reason } = call.request;
 
-    if (!role) {
-      return callback({
-        code: grpc.status.INVALID_ARGUMENT,
-        message: 'Debe especificar el rol (user o admin).',
-      });
-    }
-
-    // 🔍 Buscar pedido por id o trackingNumber
-    const order =
-      (await Order.findByPk(idOrTracking)) ||
-      (await Order.findOne({ where: { trackingNumber: idOrTracking } }));
-
-    if (!order) {
-      return callback({
-        code: grpc.status.NOT_FOUND,
-        message: 'Pedido no encontrado.',
-      });
-    }
-
-    // 🔹 Caso 1: usuario
-    if (role === 'user') {
-      if (order.status !== 'pendiente' && order.status !== 'en procesamiento') {
-        return callback({
-          code: grpc.status.PERMISSION_DENIED,
-          message:
-            'El usuario solo puede cancelar pedidos pendientes o en procesamiento.',
-        });
-      }
-
-      order.status = 'cancelado';
-      await order.save();
-
-      // Si usas RabbitMQ o correos:
-      // await sendOrderEmail(order, 'cancelled', 'Cancelación realizada por el usuario.');
-      // await publishToQueue('order.cancelled', { orderId: order.id, cancelledBy: 'usuario' });
-
-      return callback(null, {
-        success: true,
-        message: 'Pedido cancelado por el usuario.',
-      });
-    }
-
-    // 🔹 Caso 2: administrador
-    if (role === 'admin') {
-      if (!reason || reason.trim() === '') {
+      if (!role) {
         return callback({
           code: grpc.status.INVALID_ARGUMENT,
-          message:
-            'El administrador debe proporcionar una razón de cancelación.',
+          message: 'Debe especificar el rol (user o admin).',
         });
       }
+
+      const order =
+        (await Order.findByPk(idOrTracking)) ||
+        (await Order.findOne({ where: { trackingNumber: idOrTracking } }));
+
+      if (!order)
+        return callback({
+          code: grpc.status.NOT_FOUND,
+          message: 'Pedido no encontrado.',
+        });
 
       order.status = 'cancelado';
       await order.save();
 
-      // await sendOrderEmail(order, 'cancelled', `Cancelado por admin: ${reason}`);
-      // await publishToQueue('order.cancelled', { orderId: order.id, cancelledBy: 'admin', reason });
+      // 📧 Enviar correo de cancelación
+      if (role === 'user') {
+        await sendOrderEmail('cancelled', order, 'Cancelación realizada por el usuario.');
+      } else {
+        await sendOrderEmail('cancelled', order, `Cancelado por admin: ${reason || 'N/A'}`);
+      }
 
-      return callback(null, {
+      callback(null, {
         success: true,
-        message: 'Pedido cancelado por el administrador.',
+        message: `Pedido cancelado por ${role === 'admin' ? 'administrador' : 'usuario'}.`,
+      });
+    } catch (error) {
+      console.error('❌ Error en CancelOrder:', error);
+      callback({
+        code: grpc.status.INTERNAL,
+        message: `Error cancelando pedido: ${error.message}`,
       });
     }
+  },
 
-    // 🔹 Si el rol no es válido
-    return callback({
-      code: grpc.status.INVALID_ARGUMENT,
-      message: 'Rol inválido. Debe ser "user" o "admin".',
-    });
-  } catch (error) {
-    console.error('Error al cancelar pedido:', error);
-    callback({
-      code: grpc.status.INTERNAL,
-      message: `Error al cancelar pedido: ${error.message}`,
-    });
-  }
-},
-
-  // Historial de órdenes por cliente
+  // ✅ Historial de órdenes
   async GetOrderHistory(call, callback) {
     try {
       const { clientId } = call.request;
@@ -241,24 +216,19 @@ async CancelOrder(call, callback) {
 
       callback(null, { orders });
     } catch (error) {
+      console.error('❌ Error en GetOrderHistory:', error);
       callback({
         code: grpc.status.INTERNAL,
-        message: `Error fetching order history: ${error.message}`,
+        message: `Error obteniendo historial: ${error.message}`,
       });
     }
   },
 };
 
-// 🚀 Función para iniciar el servidor gRPC
+// 🚀 Inicialización del servidor gRPC
 export const startGrpcService = async () => {
   const server = new grpc.Server();
-
-  console.log('📂 PROTO_PATH:', PROTO_PATH);
-  console.log('🧩 Loaded proto definition keys:', Object.keys(orderProto));
-
   server.addService(orderProto.OrderService.service, orderService);
-
-
   const PORT = process.env.GRPC_PORT || 50052;
 
   return new Promise((resolve, reject) => {
@@ -266,10 +236,7 @@ export const startGrpcService = async () => {
       `0.0.0.0:${PORT}`,
       grpc.ServerCredentials.createInsecure(),
       (err, port) => {
-        if (err) {
-          console.error('❌ Error iniciando gRPC:', err);
-          return reject(err);
-        }
+        if (err) return reject(err);
         console.log(`🚀 Order gRPC Server corriendo en puerto ${port}`);
         resolve(server);
       }
