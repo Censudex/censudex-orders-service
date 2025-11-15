@@ -1,94 +1,166 @@
+// Define la versión de Protocol Buffers utilizada (proto3 es la más reciente)
 syntax = "proto3";
 
+// Nombre del paquete para organizar los servicios y mensajes
 package order;
 
+// Namespace para código generado en C# (.NET)
 option csharp_namespace = "OrderService.Protos"; 
 
+/**
+ * 🚀 Definición del servicio gRPC para órdenes
+ * Especifica los métodos RPC disponibles para operaciones CRUD de órdenes
+ */
 service OrderService {
+  // Crea una nueva orden con sus items asociados
   rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  
+  // Obtiene todas las órdenes con filtros opcionales (ID, usuario, rango de fechas)
   rpc GetAllOrders(GetAllOrdersRequest) returns (GetAllOrdersResponse);
+  
+  // Consulta el estado de una orden mediante su número de seguimiento
   rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse);
+  
+  // Actualiza el estado de una orden existente
   rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
+  
+  // Cancela una orden con validación de rol (usuario o admin)
   rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  
+  // Obtiene el historial completo de órdenes de un cliente
   rpc GetOrderHistory(GetOrderHistoryRequest) returns (GetOrderHistoryResponse);
 }
 
+/**
+ * 📦 Mensaje OrderItem
+ * Representa un artículo individual dentro de una orden
+ */
 message OrderItem {
-  string id = 1;
-  string orderId = 2;
-  string productId = 3;
-  int32 quantity = 4;
-  double price = 5;
+  string id = 1;              // Identificador único del item
+  string orderId = 2;         // ID de la orden a la que pertenece
+  string productId = 3;       // Identificador del producto
+  int32 quantity = 4;         // Cantidad del producto (número entero)
+  double price = 5;           // Precio unitario del producto (número decimal)
 }
 
+/**
+ * 📋 Mensaje Order
+ * Representa una orden completa con todos sus datos y artículos asociados
+ */
 message Order {
-  string id = 1;
-  string clientId = 2;
-  string clientName = 3;
-  double totalAmount = 4;
-  string status = 5;
-  string trackingNumber = 6;
-  string shippingAddress = 7;
-  string createdAt = 8;
-  repeated OrderItem items = 9;
+  string id = 1;              // Identificador único de la orden (UUID)
+  string clientId = 2;        // ID del cliente que realizó la orden
+  string clientName = 3;      // Nombre del cliente
+  double totalAmount = 4;     // Monto total de la orden (suma de todos los items)
+  string status = 5;          // Estado actual: 'pendiente', 'procesando', 'enviado', 'entregado', 'cancelado'
+  string trackingNumber = 6;  // Número de seguimiento del envío
+  string shippingAddress = 7; // Dirección de envío del cliente
+  string createdAt = 8;       // Fecha y hora de creación en formato ISO 8601
+  repeated OrderItem items = 9; // Lista de items que contiene la orden
 }
 
-
-
+/**
+ * 📤 Mensaje CreateOrderRequest
+ * Solicitud para crear una nueva orden
+ */
 message CreateOrderRequest {
-  string clientId = 1;
-  string clientName = 2;
-  string shippingAddress = 3;
-  repeated OrderItem items = 4;
+  string clientId = 1;              // ID del cliente que crea la orden
+  string clientName = 2;            // Nombre del cliente
+  string shippingAddress = 3;       // Dirección de entrega
+  repeated OrderItem items = 4;     // Array de items a incluir en la orden
 }
 
+/**
+ * 📥 Mensaje CreateOrderResponse
+ * Respuesta al crear una orden (retorna la orden creada)
+ */
 message CreateOrderResponse {
-  Order order = 1;
+  Order order = 1;                  // Orden recién creada con todos sus datos
 }
 
+/**
+ * 🔍 Mensaje GetAllOrdersRequest
+ * Solicitud para obtener todas las órdenes con filtros opcionales
+ */
 message GetAllOrdersRequest {
-  string id = 1;
-  string userId = 2;
-  string startDate = 3;
-  string endDate = 4;
+  string id = 1;              // Filtro opcional: ID específico de orden
+  string userId = 2;          // Filtro opcional: ID del cliente/usuario
+  string startDate = 3;       // Filtro opcional: fecha inicial (formato ISO 8601)
+  string endDate = 4;         // Filtro opcional: fecha final (formato ISO 8601)
 }
 
+/**
+ * 📊 Mensaje GetAllOrdersResponse
+ * Respuesta con lista de órdenes que coinciden con los filtros
+ */
 message GetAllOrdersResponse {
-  repeated Order orders = 1;
+  repeated Order orders = 1;        // Lista de órdenes encontradas
 }
 
+/**
+ * 🔎 Mensaje GetOrderStatusRequest
+ * Solicitud para consultar el estado de una orden
+ */
 message GetOrderStatusRequest {
-  string trackingNumber = 1;
+  string trackingNumber = 1;        // Número de seguimiento de la orden
 }
+
+/**
+ * ✅ Mensaje GetOrderStatusResponse
+ * Respuesta con el estado actual de la orden
+ */
 message GetOrderStatusResponse {
-  string status = 1;
+  string status = 1;                // Estado actual de la orden
 }
 
+/**
+ * 🔄 Mensaje UpdateOrderStatusRequest
+ * Solicitud para actualizar el estado de una orden
+ */
 message UpdateOrderStatusRequest {
-  string id = 1;
-  string status = 2;
+  string id = 1;                    // ID de la orden a actualizar
+  string status = 2;                // Nuevo estado de la orden
 }
+
+/**
+ * ✔️ Mensaje UpdateOrderStatusResponse
+ * Respuesta confirmando la actualización del estado
+ */
 message UpdateOrderStatusResponse {
-  bool success = 1;
+  bool success = 1;                 // Indica si la actualización fue exitosa (true/false)
 }
 
+/**
+ * ❌ Mensaje CancelOrderRequest
+ * Solicitud para cancelar una orden
+ */
 message CancelOrderRequest {
-  string idOrTracking = 1;
-  string role = 2;
-  string reason = 3;
+  string idOrTracking = 1;          // ID de la orden o número de seguimiento
+  string role = 2;                  // Rol del usuario: 'user' o 'admin'
+  string reason = 3;                // Motivo de cancelación (obligatorio para admin)
 }
+
+/**
+ * ⛔ Mensaje CancelOrderResponse
+ * Respuesta confirmando la cancelación de la orden
+ */
 message CancelOrderResponse {
-  bool success = 1;
-  string message = 2;
+  bool success = 1;                 // Indica si la cancelación fue exitosa
+  string message = 2;               // Mensaje de confirmación o error
 }
 
+/**
+ * 📚 Mensaje GetOrderHistoryRequest
+ * Solicitud para obtener el historial de órdenes de un cliente
+ */
 message GetOrderHistoryRequest {
-  string clientId = 1;
+  string clientId = 1;              // ID del cliente cuyo historial se solicita
 }
+
+/**
+ * 📖 Mensaje GetOrderHistoryResponse
+ * Respuesta con todas las órdenes del cliente
+ */
 message GetOrderHistoryResponse {
-  repeated Order orders = 1;
+  repeated Order orders = 1;        // Lista de todas las órdenes del cliente
 }
-
-
-
-
