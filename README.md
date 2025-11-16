@@ -99,6 +99,9 @@ Paso 5: Levantamos la base de datos, el servicio orders y el servicio de rabbitm
 
 Nota: si queremos detener el proyecto podemos usar la combinacion de teclas ctrl + c, si queremos bajar el docker usamos el comando *docker compose down*, para levantar el proyecto de nuevo podemos usar el comando *docker compose up*.
 
+Nota2: al exponer la api key de sengrid en este readme automaticamente la pagina de sengrid elimino esta api key, por lo que para usar las funciones de sengrid haria falta crear una cuenta y reemplazar la api key del .env con una propia.
+
 Con estos pasos el proyecto ya esta listo para ser usado por la api getaway o ser probado de forma local mediante postman, como el objetivo del taller es probarlo mediante llamadas gRPC desde la apigetaway sera en la documentacion de esta en donde se definan las llamadas a este y los otros servicios. Por ultimo reiterar en que para el fucnionamiento de este servicio es neceario levantar servicios por medio de docker y estos deben seguir corriendo al momento de usar la api gateway.
+
 
 
